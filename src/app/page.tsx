@@ -51,6 +51,78 @@ Code diff:
 
 Provide your review in a structured format.`,
   },
+  {
+    name: 'SQL Generator',
+    content: `You are a SQL query generator.
+
+Given the following table schema and user request, generate an efficient SQL query.
+
+Table Schema:
+{{schema}}
+
+User Request:
+{{request}}
+
+Provide only the SQL query with a brief explanation.`,
+  },
+  {
+    name: 'Email Writer',
+    content: `You are a professional email writer.
+
+Write a {{tone}} email with the following details:
+- Subject: {{subject}}
+- Main message: {{message}}
+- Call to action: {{cta}}
+
+Keep it concise, clear, and professional.`,
+  },
+  {
+    name: 'Meeting Summary',
+    content: `You are a meeting notes summarizer.
+
+Summarize the following meeting transcript into:
+1. Key decisions made
+2. Action items with owners
+3. Topics discussed
+4. Next steps
+
+Transcript:
+{{transcript}}
+
+Format as structured bullet points.`,
+  },
+  {
+    name: 'Data Analysis',
+    content: `You are a data analyst.
+
+Analyze the following dataset description and provide:
+1. Suggested metrics to calculate
+2. Potential insights or patterns
+3. Recommended visualizations
+
+Dataset:
+{{dataset_description}}
+
+Business Question:
+{{question}}`,
+  },
+  {
+    name: 'QA Tester',
+    content: `You are a QA tester creating test cases.
+
+Generate test cases for the following feature:
+
+Feature Description:
+{{feature}}
+
+Test Coverage:
+- Happy path scenarios
+- Edge cases
+- Error conditions
+- Boundary values
+
+Format as a structured test case list with prerequisites, steps, and expected results.`,
+  },
 ];
 
 function extractVariables(content: string): string[] {
@@ -89,6 +161,7 @@ export default function PromptLibrary() {
   const [showPreview, setShowPreview] = useState(false);
   const [showNewPrompt, setShowNewPrompt] = useState(false);
   const [newPromptName, setNewPromptName] = useState('');
+  const [showPresetDropdown, setShowPresetDropdown] = useState(false);
 
   const selectedPrompt = prompts.find((p) => p.id === selectedId);
 
@@ -247,16 +320,30 @@ export default function PromptLibrary() {
               + New Prompt
             </button>
             <div className="text-xs text-gray-500 text-center">or load preset:</div>
-            <div className="flex gap-1">
-              {PRESETS.map((preset) => (
-                <button
-                  key={preset.name}
-                  onClick={() => loadPreset(preset)}
-                  className="flex-1 px-2 py-1 text-xs bg-gray-800 hover:bg-gray-700 rounded transition-colors"
-                >
-                  {preset.name.split(' ')[0]}
-                </button>
-              ))}
+            <div className="relative">
+              <button
+                onClick={() => setShowPresetDropdown(!showPresetDropdown)}
+                className="w-full px-3 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm transition-colors flex justify-between items-center"
+              >
+                <span>📋 Templates</span>
+                <span>{showPresetDropdown ? '▲' : '▼'}</span>
+              </button>
+              {showPresetDropdown && (
+                <div className="absolute bottom-full left-0 right-0 mb-1 bg-gray-800 border border-gray-700 rounded-lg overflow-hidden shadow-lg z-10 max-h-48 overflow-y-auto">
+                  {PRESETS.map((preset) => (
+                    <button
+                      key={preset.name}
+                      onClick={() => {
+                        loadPreset(preset);
+                        setShowPresetDropdown(false);
+                      }}
+                      className="w-full px-3 py-2 text-left text-sm hover:bg-gray-700 transition-colors"
+                    >
+                      {preset.name}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
