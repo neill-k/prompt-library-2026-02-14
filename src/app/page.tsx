@@ -157,6 +157,18 @@ export default function PromptLibrary() {
     navigator.clipboard.writeText(text);
   };
 
+  const exportToMarkdown = (prompt: Prompt) => {
+    const filename = `${prompt.name.toLowerCase().replace(/[^a-z0-9]+/g, '-')}.md`;
+    const content = `# ${prompt.name}\n\n${prompt.content}\n\n---\n*Exported from Prompt Library on ${new Date().toLocaleDateString()}*`;
+    const blob = new Blob([content], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const previewContent = selectedPrompt ? substituteVariables(editContent, testValues) : '';
 
   return (
@@ -320,12 +332,18 @@ export default function PromptLibrary() {
                     </div>
                   </div>
 
-                  <div className="mt-4">
+                  <div className="mt-4 flex gap-2">
                     <button
                       onClick={() => copyToClipboard(editContent)}
-                      className="w-full px-3 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm transition-colors"
+                      className="flex-1 px-3 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm transition-colors"
                     >
                       📋 Copy Source
+                    </button>
+                    <button
+                      onClick={() => selectedPrompt && exportToMarkdown(selectedPrompt)}
+                      className="flex-1 px-3 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm transition-colors"
+                    >
+                      📥 Export
                     </button>
                   </div>
                 </div>
