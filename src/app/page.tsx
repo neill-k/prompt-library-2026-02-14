@@ -292,6 +292,24 @@ export default function PromptLibrary() {
     alert('Share link copied to clipboard!');
   };
 
+  const importFromFile = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.md,.txt';
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+      const text = await file.text();
+      // Extract name from first # heading or use filename
+      const headingMatch = text.match(/^#\s+(.+)$/m);
+      const name = headingMatch ? headingMatch[1] : file.name.replace(/\.(md|txt)$/, '');
+      // Strip the title line if it exists
+      const content = text.replace(/^#\s+.+$/m, '').trim();
+      createPrompt(name, content);
+    };
+    input.click();
+  };
+
   const previewContent = selectedPrompt ? substituteVariables(editContent, testValues) : '';
 
   return (
@@ -336,6 +354,12 @@ export default function PromptLibrary() {
               className="w-full px-3 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg text-sm font-medium transition-colors"
             >
               + New Prompt
+            </button>
+            <button
+              onClick={importFromFile}
+              className="w-full px-3 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-sm transition-colors"
+            >
+              📤 Import .md
             </button>
             <div className="text-xs text-gray-500 text-center">or load preset:</div>
             <div className="relative">
