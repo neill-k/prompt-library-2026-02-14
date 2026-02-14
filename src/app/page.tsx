@@ -12,6 +12,11 @@ interface Prompt {
   updatedAt: number;
 }
 
+interface Settings {
+  apiKey: string;
+  model: string;
+}
+
 const DEFAULT_PROMPT = `You are a {{role}} helping with {{task}}.
 
 Instructions:
@@ -20,6 +25,14 @@ Instructions:
 
 Context:
 {{context}}`;
+
+const MODELS = [
+  { id: 'gpt-4o', name: 'GPT-4o' },
+  { id: 'gpt-4o-mini', name: 'GPT-4o Mini' },
+  { id: 'gpt-4-turbo', name: 'GPT-4 Turbo' },
+  { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet' },
+  { id: 'claude-3-haiku-20240307', name: 'Claude 3 Haiku' },
+];
 
 const PRESETS = [
   {
@@ -163,6 +176,10 @@ export default function PromptLibrary() {
   const [newPromptName, setNewPromptName] = useState('');
   const [showPresetDropdown, setShowPresetDropdown] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showSettings, setShowSettings] = useState(false);
+  const [settings, setSettings] = useState<Settings>({ apiKey: '', model: 'gpt-4o' });
+  const [llmLoading, setLlmLoading] = useState(false);
+  const [llmResponse, setLlmResponse] = useState('');
 
   const selectedPrompt = prompts.find((p) => p.id === selectedId);
 
@@ -224,6 +241,23 @@ export default function PromptLibrary() {
       localStorage.setItem('prompt-library', JSON.stringify(prompts));
     }
   }, [prompts]);
+
+  // Load settings from localStorage
+  useEffect(() => {
+    const savedSettings = localStorage.getItem('prompt-library-settings');
+    if (savedSettings) {
+      try {
+        setSettings(JSON.parse(savedSettings));
+      } catch {
+        // ignore
+      }
+    }
+  }, []);
+
+  // Save settings to localStorage
+  useEffect(() => {
+    localStorage.setItem('prompt-library-settings', JSON.stringify(settings));
+  }, [settings]);
 
   useEffect(() => {
     if (selectedPrompt) {
@@ -311,6 +345,57 @@ export default function PromptLibrary() {
   };
 
   const previewContent = selectedPrompt ? substituteVariables(editContent, testValues) : '';
+
+  const testWithLLM = async () => {
+    if (!settings.apiKey || !selectedPrompt) return;
+    
+    setLlmLoading(true);
+    setLlmResponse('');
+    
+    try {
+      const isClaude = settings.model.startsWith('claude-');
+      const endpoint = isClaude 
+        ? 'https://api.anthropic.com/v1/messages'
+        : 'https://api.openai.com/v1/chat/completions';
+      
+      const body = isClaude
+        ? {
+            model: settings.model,
+            max_tokens: 1024,
+            messages: [{ role: 'user', content: previewContent }]
+          }
+        : {
+            model: settings.model,
+            messages: [{ role: 'user', content: previewContent }],
+            max_tokens: 1024
+          };
+      
+      const headers: Record<string, string> = isClaude
+        ? { 'Content-Type': 'application/json', 'x-api-key': settings.apiKey, 'anthropic-version': '2023-06-01' }
+        : { 'Content-Type': 'application/json', 'Authorization': `Bearer ${settings.apiKey}` };
+      
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(body)
+      });
+      
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      const text = isClaude 
+        ? data.content?.[0]?.text || 'No response'
+        : data.choices?.[0]?.message?.content || 'No response';
+      
+      setLlmResponse(text);
+    } catch (err) {
+      setLlmResponse(`Error: ${err instanceof Error ? err.message : 'Failed to call API'}`);
+    } finally {
+      setLlmLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100">
@@ -404,6 +489,14 @@ export default function PromptLibrary() {
                 />
                 <div className="flex gap-2">
                   <button
+                    onClick={() => setShowSettings(!showSettings)}
+                    className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
+                      showSettings ? 'bg-blue-600 text-white' : 'bg-gray-800 hover:bg-gray-700'
+                    }`}
+                  >
+                    ⚙️ Settings
+                  </button>
+                  <button
                     onClick={sharePrompt}
                     className="px-3 py-1.5 text-sm bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors"
                   >
@@ -429,6 +522,40 @@ export default function PromptLibrary() {
                   </button>
                 </div>
               </div>
+
+              {/* Settings Panel */}
+              {showSettings && (
+                <div className="p-4 border-b border-gray-800 bg-gray-900/50">
+                  <h3 className="text-sm font-medium text-gray-400 mb-3">🔌 LLM API Settings</h3>
+                  <div className="flex gap-4 items-start">
+                    <div className="flex-1">
+                      <label className="text-xs text-gray-500 block mb-1">API Key</label>
+                      <input
+                        type="password"
+                        value={settings.apiKey}
+                        onChange={(e) => setSettings({ ...settings, apiKey: e.target.value })}
+                        placeholder="sk-... (OpenAI) or ant... (Anthropic)"
+                        className="w-full px-3 py-2 bg-gray-950 border border-gray-800 rounded-lg text-sm outline-none focus:border-blue-600"
+                      />
+                    </div>
+                    <div className="w-48">
+                      <label className="text-xs text-gray-500 block mb-1">Model</label>
+                      <select
+                        value={settings.model}
+                        onChange={(e) => setSettings({ ...settings, model: e.target.value })}
+                        className="w-full px-3 py-2 bg-gray-950 border border-gray-800 rounded-lg text-sm outline-none focus:border-blue-600"
+                      >
+                        {MODELS.map((m) => (
+                          <option key={m.id} value={m.id}>{m.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                  <p className="text-xs text-gray-600 mt-2">
+                    Keys stored locally in your browser. Not sent to any server except the LLM API directly.
+                  </p>
+                </div>
+              )}
 
               <div className="flex-1 flex overflow-hidden">
                 {/* Editor / Preview */}
@@ -522,6 +649,28 @@ export default function PromptLibrary() {
                     >
                       📥 Export
                     </button>
+                  </div>
+
+                  {/* LLM Test Section */}
+                  {llmResponse && (
+                    <div className="mt-4 p-3 bg-gray-900 rounded-lg">
+                      <h4 className="text-xs font-medium text-gray-400 mb-2">🤖 LLM Response</h4>
+                      <pre className="text-xs text-gray-300 whitespace-pre-wrap max-h-40 overflow-y-auto">
+                        {llmResponse}
+                      </pre>
+                    </div>
+                  )}
+                  <div className="mt-4">
+                    <button
+                      onClick={testWithLLM}
+                      disabled={!settings.apiKey || llmLoading}
+                      className="w-full px-3 py-2 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg text-sm transition-colors"
+                    >
+                      {llmLoading ? '⏳ Calling API...' : '🤖 Test with LLM'}
+                    </button>
+                    {!settings.apiKey && (
+                      <p className="text-xs text-gray-500 mt-1 text-center">Add API key in Settings first</p>
+                    )}
                   </div>
                 </div>
               </div>
