@@ -298,15 +298,24 @@ export default function PromptLibrary() {
                         .slice()
                         .reverse()
                         .map((v, i) => (
-                          <div
+                          <button
                             key={v.timestamp}
-                            className="text-xs bg-gray-900 p-2 rounded flex justify-between items-center"
+                            onClick={() => {
+                              setEditContent(v.content);
+                              setTestValues(
+                                extractVariables(v.content).reduce(
+                                  (acc, varName) => ({ ...acc, [varName]: '' }),
+                                  {}
+                                )
+                              );
+                            }}
+                            className="w-full text-xs bg-gray-900 hover:bg-gray-800 p-2 rounded flex justify-between items-center transition-colors"
                           >
                             <span className="text-gray-500">v{selectedPrompt.versions.length - i}</span>
                             <span className="text-gray-600">
                               {new Date(v.timestamp).toLocaleTimeString()}
                             </span>
-                          </div>
+                          </button>
                         ))}
                     </div>
                   </div>
