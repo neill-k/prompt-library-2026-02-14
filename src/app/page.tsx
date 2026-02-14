@@ -162,8 +162,16 @@ export default function PromptLibrary() {
   const [showNewPrompt, setShowNewPrompt] = useState(false);
   const [newPromptName, setNewPromptName] = useState('');
   const [showPresetDropdown, setShowPresetDropdown] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   const selectedPrompt = prompts.find((p) => p.id === selectedId);
+
+  // Filter prompts by search query
+  const filteredPrompts = prompts.filter((p) => {
+    if (!searchQuery.trim()) return true;
+    const query = searchQuery.toLowerCase();
+    return p.name.toLowerCase().includes(query) || p.content.toLowerCase().includes(query);
+  });
 
   const createPrompt = (name: string, content: string = DEFAULT_PROMPT) => {
     const variables = extractVariables(content);
@@ -296,8 +304,18 @@ export default function PromptLibrary() {
             <p className="text-xs text-gray-500 mt-1">Organize, version, test</p>
           </div>
 
+          <div className="p-2 border-b border-gray-800">
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="🔍 Search prompts..."
+              className="w-full px-3 py-2 bg-gray-950 border border-gray-800 rounded-lg text-sm outline-none focus:border-blue-600 text-gray-200"
+            />
+          </div>
+
           <div className="flex-1 overflow-y-auto p-2">
-            {prompts.map((prompt) => (
+            {filteredPrompts.map((prompt) => (
               <button
                 key={prompt.id}
                 onClick={() => setSelectedId(prompt.id)}
