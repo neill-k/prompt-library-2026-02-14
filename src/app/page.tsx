@@ -66,6 +66,20 @@ function substituteVariables(content: string, values: Record<string, string>): s
   return result;
 }
 
+function serializePrompt(prompt: Omit<Prompt, 'id' | 'versions' | 'createdAt' | 'updatedAt'>): string {
+  const data = JSON.stringify({ name: prompt.name, content: prompt.content, variables: prompt.variables });
+  return btoa(encodeURIComponent(data));
+}
+
+function deserializePrompt(encoded: string): Omit<Prompt, 'id' | 'versions' | 'createdAt' | 'updatedAt'> | null {
+  try {
+    const data = decodeURIComponent(atob(encoded));
+    return JSON.parse(data);
+  } catch {
+    return null;
+  }
+}
+
 export default function PromptLibrary() {
   const [prompts, setPrompts] = useState<Prompt[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -77,6 +91,39 @@ export default function PromptLibrary() {
   const [newPromptName, setNewPromptName] = useState('');
 
   const selectedPrompt = prompts.find((p) => p.id === selectedId);
+
+  const createPrompt = (name: string, content: string = DEFAULT_PROMPT) => {
+    const variables = extractVariables(content);
+    const newPrompt: Prompt = {
+      id: Date.now().toString(),
+      name,
+      content,
+      variables,
+      versions: [{ content, timestamp: Date.now() }],
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+    setPrompts([...prompts, newPrompt]);
+    setSelectedId(newPrompt.id);
+    setShowNewPrompt(false);
+    setNewPromptName('');
+  };
+
+  // Check for shared prompt in URL on mount
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const shared = params.get('s');
+    if (shared) {
+      const promptData = deserializePrompt(shared);
+      if (promptData) {
+        createPrompt(promptData.name + ' (shared)', promptData.content);
+        // Clear the URL param
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     const saved = localStorage.getItem('prompt-library');
@@ -107,23 +154,6 @@ export default function PromptLibrary() {
       );
     }
   }, [selectedPrompt]);
-
-  const createPrompt = (name: string, content: string = DEFAULT_PROMPT) => {
-    const variables = extractVariables(content);
-    const newPrompt: Prompt = {
-      id: Date.now().toString(),
-      name,
-      content,
-      variables,
-      versions: [{ content, timestamp: Date.now() }],
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    };
-    setPrompts([...prompts, newPrompt]);
-    setSelectedId(newPrompt.id);
-    setShowNewPrompt(false);
-    setNewPromptName('');
-  };
 
   const savePrompt = () => {
     if (!selectedPrompt) return;
@@ -167,6 +197,18 @@ export default function PromptLibrary() {
     a.download = filename;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const sharePrompt = () => {
+    if (!selectedPrompt) return;
+    const encoded = serializePrompt({
+      name: selectedPrompt.name,
+      content: selectedPrompt.content,
+      variables: selectedPrompt.variables,
+    });
+    const shareUrl = `${window.location.origin}${window.location.pathname}?s=${encoded}`;
+    navigator.clipboard.writeText(shareUrl);
+    alert('Share link copied to clipboard!');
   };
 
   const previewContent = selectedPrompt ? substituteVariables(editContent, testValues) : '';
@@ -232,6 +274,12 @@ export default function PromptLibrary() {
                   className="text-xl font-semibold bg-transparent border-none outline-none text-white w-64"
                 />
                 <div className="flex gap-2">
+                  <button
+                    onClick={sharePrompt}
+                    className="px-3 py-1.5 text-sm bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors"
+                  >
+                    🔗 Share
+                  </button>
                   <button
                     onClick={() => setShowPreview(!showPreview)}
                     className="px-3 py-1.5 text-sm bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors"
